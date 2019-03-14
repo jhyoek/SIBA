@@ -1,46 +1,47 @@
-#include <ArduinoJson.h>
+#include <SPI.h>
 
-const byte ledPin = D8;
-const byte interruptPin = D2;
-volatile byte state = LOW;
-volatile byte lock = 0x00;
+#include "RF24.h"
 
-char* userName = "";
-char* ssid = ""; //AP's ssid
-char* password = ""; // AP's password
+ 
 
+RF24 radio(4,15);
 
+const uint64_t address = 0x72646f4e31LL;
 
-void setup() {
-  Serial.begin(115200);
-  pinMode(ledPin, OUTPUT);
-  pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), on, CHANGE);
+ 
+
+void setup(){
+
+  Serial.begin(115200);
+
+ 
+
+  radio.begin();
+
+  radio.setChannel(115);
+
+  radio.setPALevel(RF24_PA_MAX);
+
+  radio.openReadingPipe(1,address);
+
+  radio.startListening();
+
 }
 
-void on() {
+ 
 
-  char json[] = "{\"ssid\":\"test\",\"password\":\"1351824120\"}";
-  StaticJsonDocument<256> doc;
-  deserializeJson(doc, json);
-  JsonObject root = doc.as<JsonObject>();
+void loop(){
 
-  String ssid = root["ssid"];
-  String password = root["password"];
+  if(radio.available()){
 
-  Serial.println(ssid);
-  Serial.println(password);
-  
-  if(lock==0x00){
-    lock=0xff;
-    Serial.println("hello");
-    lock=0x00;
-    long prev=millis();
-    while(millis()-prev<1000){}  
-  }
+    char text[32] = "";
+
+    radio.read(&text, sizeof(text));
+
+    Serial.print("RX : ");
+
+    Serial.println(text);
+
+  }
+
 }
-
-void loop() {
-  digitalWrite(ledPin, state);
-  
-  }
