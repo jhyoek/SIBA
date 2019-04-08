@@ -9,7 +9,7 @@
 #define CSN 15
 #define BAUDRATE 115200
 #define CHANNEL 115
-#define INTTERUPT_PIN 5
+#define SW 5
 
 RF24 radio(CE,CSN); //nrf24l01 resource
 
@@ -20,6 +20,10 @@ String ssid = "";
 String password = "";
 byte init_flag=0;
 volatile byte isr_lock=0;
+int press_btn;
+int press_time;
+
+unsigned long compare_time_ms = 0;
 
 byte json_parse(){
    Serial.println("*** JSON PARSING...");
@@ -49,7 +53,6 @@ byte establish_esp(){
   Serial.println("*** TRY 802.11 CONNECTION");
   WiFi.begin(ssid, password);
   long prev_time = millis();
-  //wait iot hub connect finish but 10 seconds limitation
   while (WiFi.status() != WL_CONNECTED && millis()-prev_time<10000){ 
     delay(500);
   }//AVR spin
@@ -66,26 +69,30 @@ byte establish_esp(){
   }
 }
 
+void check_state_sw(void) {
+  unsigned long current_time_ms = millis();
+  press_btn = digitalRead(SW);
+
+  if(current_time_ms - compare_time_ms >= 5){
+    for(int i = 0; i < 1; i++){ // i < ㅁ <- setting current time checking
+      if(press_btn == 0) press_time+=5;
+      else if(press_btn == 1){
+        if(press_time > 1000) isr_lock = 1;
+        press_time = 0;
+      }
+    }
+    compare_time_ms = current_time_ms;
+  }
+}
+
 void setup(){
   Serial.begin(BAUDRATE);
   radio.begin();//radio resource init
   radio.setChannel(CHANNEL);
   radio.setPALevel(RF24_PA_MAX);
-  pinMode(INTTERUPT_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(INTTERUPT_PIN), isr, CHANGE);
   radio.powerDown();//power down
   Serial.println("*** RF24 INITIALIZE FINISH...");
 }
-
-//interrupt function
-void isr(){
-  //must solve chattering
-  if(!isr_lock){
-    Serial.println("*** ENTER INTERRUPT ROUTINE");
-    isr_lock=1;
-  }
-}
-
 
 void rf24_read_packet(){
   Serial.println("*** ENTER RF24 READ FUNCTION");
@@ -116,6 +123,8 @@ void rf24_read_packet(){
 }
 
 void loop(){
+  check_state_sw();
+  
   if(init_flag){
     //esp12 connected
   }
