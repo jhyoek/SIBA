@@ -10,7 +10,14 @@
 #include "includes/ArduinoJson/ArduinoJson.h"
 #include <ESP8266WiFi.h>
 
+#if defined(ESP8266) || defined(ESP32)
+#include <functional>
+#endif
+
+//initialize static member
 SIBA SIBA::context;
+size_t SIBA::action_cnt = 0;
+sb_event SIBA::action_store[EVENT_COUNT] = {0};
 
 SIBA::SIBA()
 {
@@ -19,23 +26,31 @@ SIBA::SIBA()
   this->mqtt_port = 1883;
 
   this->espClient = WiFiClient();
-  this->client=PubSubClient(espClient);
+  this->client = PubSubClient(espClient);
 }
 
 size_t SIBA::init(const char *ssid, const char *pwd, const char *dev_type)
 {
   //static function내에서 멤버 함수를 실행 할 수 없으므로 트릭 사용
-  context = *this; 
+  context = *this;
 
   //instance field value init
-  this->ssid = const_cast<char*>(ssid);
-  this->pwd = const_cast<char*>(pwd);
-  this->dev_type = const_cast<char*>(dev_type);
+  this->ssid = const_cast<char *>(ssid);
+  this->pwd = const_cast<char *>(pwd);
+  this->dev_type = const_cast<char *>(dev_type);
 
   //basic setup function call
   this->init_wifi(this->ssid, this->pwd);
   this->client.setServer(this->mqtt_server, this->mqtt_port);
-  this->client.setCallback(&SIBA::mqtt_callback);
+
+#if defined(ESP8266) || defined(ESP32)
+  std::function<void(char *, uint8_t *, unsigned int)> callback = SIBA::mqtt_callback;
+#else
+  void (*callback)(char *, uint8_t *, unsigned int);
+  callback = SIBA::mqtt_callback;
+#endif
+
+  this->client.setCallback(callback);
 
   return 1;
 }
@@ -75,9 +90,9 @@ void SIBA::init_wifi(char *ssid, char *pwd)
 size_t SIBA::add_event(size_t code, SB_ACTION)
 {
   size_t ret = 0;
-  if (ret = this->action_cnt != EVENT_COUNT - 1)
+  if (ret = action_cnt != EVENT_COUNT - 1)
   { //액션 스토어의 범위 내라면
-    this->action_store[this->action_cnt += 1] = {code, sb_action};
+    action_store[action_cnt++] = {code, sb_action};
   }
   return ret;
 }
@@ -85,14 +100,14 @@ size_t SIBA::add_event(size_t code, SB_ACTION)
 void (*SIBA::grep_event(size_t code))()
 {
   //sequential search
-  size_t temp_index = this->action_cnt;
+  size_t temp_index = action_cnt;
   SB_ACTION = NULL;
 
   while (temp_index--)
   {
-    if (this->action_store[temp_index].sb_code == code)
+    if (action_store[temp_index].sb_code == code)
     {
-      sb_action = this->action_store[temp_index].sb_action;
+      sb_action = action_store[temp_index].sb_action;
       break;
     }
   }
@@ -142,11 +157,12 @@ void SIBA::regist_dev()
   this->publish_topic(DEV_REG, sets, sizeof(sets) / sizeof(sets[0]));
 }
 
-void SIBA::subscribe_topic(String topic)
+void SIBA::subscribe_topic(char* topic)
 {
 #if defined(ESP8266) || defined(ESP32) || defined(ARDUINO)
   Serial.println(F("subscribe topic."));
 #endif
+  this->client.subscribe(topic);
 }
 
 void SIBA::publish_topic(char *topic, sb_keypair sets[], uint16_t len)
@@ -167,7 +183,7 @@ void SIBA::publish_topic(char *topic, sb_keypair sets[], uint16_t len)
 void SIBA::mqtt_reconnect()
 {
   // Loop until we're reconnected
-  while (!client.connected())
+  while (!this->client.connected())
   {
     Serial.print(F("Attempting MQTT connection..."));
 
@@ -184,8 +200,10 @@ void SIBA::mqtt_reconnect()
       this->regist_dev();
       // ... and resubscribe
 
-      String buf = String(DEV_CTRL)+"/"+this->mac_address;
-      this->subscribe_topic(buf);
+
+      String buf = String(DEV_CTRL) + "/" + this->mac_address;
+      char* topic = const_cast<char *>(buf.c_str());
+      this->subscribe_topic(topic);
     }
     else
     {
@@ -245,7 +263,7 @@ void SIBA::mqtt_callback(char *topic, uint8_t *payload, unsigned int length)
 
 void SIBA::verify_connection()
 {
-  if (!client.connected())
+  if (!this->client.connected())
   {
     this->mqtt_reconnect();
   }

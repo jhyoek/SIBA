@@ -44,8 +44,8 @@ class SIBA{
 
         WiFiClient espClient;
         PubSubClient client;
-        size_t action_cnt = 0;
-        sb_event action_store[EVENT_COUNT]; //이벤트를 담는 배열
+        static size_t action_cnt;
+        static sb_event action_store[EVENT_COUNT]; //이벤트를 담는 배열
 
         static SIBA context;
 
@@ -53,7 +53,7 @@ class SIBA{
         size_t exec_event(SB_ACTION);
         size_t pub_result(size_t action_res);
         void regist_dev();
-        void subscribe_topic(String topic);
+        void subscribe_topic(char* topic);
         void publish_topic(char* topic, sb_keypair sets[], uint16_t len);
         void init_wifi(char* ssid, char* pwd);
         void mqtt_reconnect();
