@@ -23,16 +23,29 @@ SIBA::SIBA()
 {
   //production 이냐 develop 이냐에 따라서 mqtt server의 주소가 달라질 것, 추후에 수정해야
   this->mqtt_server = MQTT_SERVER;
-  this->mqtt_port = 1883;
+  this->mqtt_port = MQTT_PORT;
 
   this->espClient = WiFiClient();
   this->client = PubSubClient(espClient);
+  this->is_reg=0;
+
+  this->add_event(REGISTER_EVENT_CODE, SIBA::register_event); //디바이스가 등록됬을 때 수행 될 이벤트
+}
+
+void SIBA::register_event(){
+  //디바이스 정상 등록 시 로그 출력 및 LED 점등
+  Serial.println(F("device register is finished"));
+  this->is_reg=1;
+  digitalWrite(LED_BUILTIN, this->is_reg);
 }
 
 size_t SIBA::init(const char *ssid, const char *pwd, const char *dev_type)
 {
   //static function내에서 멤버 함수를 실행 할 수 없으므로 트릭 사용
   context = *this;
+
+  //hub에 디바이스 등록 시 켜지는 내장 LED
+  pinMode(LED_BUILTIN, OUTPUT);
 
   //instance field value init
   this->ssid = const_cast<char *>(ssid);
@@ -90,6 +103,9 @@ void SIBA::init_wifi(char *ssid, char *pwd)
 size_t SIBA::add_event(size_t code, SB_ACTION)
 {
   size_t ret = 0;
+
+  //0번 코드는 특수한 코드, 단 한 번만 등록될 수 있음, 생성자에서 등륵됨
+  if(code == 0 && action_cnt) return ret;
   if (ret = action_cnt != EVENT_COUNT - 1)
   { //액션 스토어의 범위 내라면
     action_store[action_cnt++] = {code, sb_action};
@@ -97,6 +113,7 @@ size_t SIBA::add_event(size_t code, SB_ACTION)
   return ret;
 }
 
+// void func() 타입의 함수 포인터 반환 함수
 void (*SIBA::grep_event(size_t code))()
 {
   //sequential search
@@ -135,12 +152,23 @@ size_t SIBA::exec_event(SB_ACTION)
 
 size_t SIBA::pub_result(size_t action_res)
 {
+  //이벤트의 수행 종료 후 결과를 허브에게 전송
+  sb_keypair sets[2];
   if (action_res)
   {
-    sb_keypair sets[] = {{"status", "true"}};
-
-    this->publish_topic(DEV_CTRL_END, sets, sizeof(sets) / sizeof(sets[0]));
+     sets = {
+      {"status", "true"},
+      {"dev_mac", this->mac_address}
+    };
   }
+  else{
+    sets = {
+      {"status", "false"},
+      {"dev_mac", this->mac_address}
+    };
+  }
+
+  this->publish_topic(DEV_CTRL_END, sets, sizeof(sets) / sizeof(sets[0]));
 }
 
 void SIBA::regist_dev()
@@ -151,9 +179,10 @@ void SIBA::regist_dev()
       {"dev_type", this->dev_type}};
 
 #if defined(ESP8266) || defined(ESP32) || defined(ARDUINO)
-  Serial.println(F("register information send"));
+  Serial.println(F("device registration request send to hub"));
 #endif
 
+  //허브에게 디바이스 등록 정보 전송
   this->publish_topic(DEV_REG, sets, sizeof(sets) / sizeof(sets[0]));
 }
 

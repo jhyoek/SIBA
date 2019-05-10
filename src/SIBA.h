@@ -14,6 +14,8 @@
 #define DEV_CTRL_END "dev/control/end"
 #define DEV_REG "dev/register"
 #define MQTT_SERVER "192.168.2.1"
+#define MQTT_PORT 1883
+#define REGISTER_EVENT_CODE 0
 
 #define SB_ACTION void (*sb_action)()
 
@@ -41,6 +43,7 @@ class SIBA{
         char* dev_type;
         String mac_address;
         String cur_ip;
+        size_t is_reg;
 
         WiFiClient espClient;
         PubSubClient client;
@@ -58,6 +61,8 @@ class SIBA{
         void init_wifi(char* ssid, char* pwd);
         void mqtt_reconnect();
         static void mqtt_callback(char *topic, uint8_t *payload, unsigned int length);
+
+        void register_event();
 
     public:
         SIBA();
