@@ -18,6 +18,8 @@
 SIBA SIBA::context;
 size_t SIBA::action_cnt = 0;
 sb_event SIBA::action_store[EVENT_COUNT] = {0};
+size_t SIBA::is_reg = 0;
+String SIBA::mac_address;
 
 SIBA::SIBA()
 {
@@ -27,25 +29,22 @@ SIBA::SIBA()
 
   this->espClient = WiFiClient();
   this->client = PubSubClient(espClient);
-  this->is_reg=0;
+  this->is_reg = 0;
 
   this->add_event(REGISTER_EVENT_CODE, SIBA::register_event); //디바이스가 등록됬을 때 수행 될 이벤트
 }
 
-void SIBA::register_event(){
+void SIBA::register_event()
+{
   //디바이스 정상 등록 시 로그 출력 및 LED 점등
   Serial.println(F("device register is finished"));
-  this->is_reg=1;
-  digitalWrite(LED_BUILTIN, this->is_reg);
+  is_reg = 1;
 }
 
 size_t SIBA::init(const char *ssid, const char *pwd, const char *dev_type)
 {
   //static function내에서 멤버 함수를 실행 할 수 없으므로 트릭 사용
   context = *this;
-
-  //hub에 디바이스 등록 시 켜지는 내장 LED
-  pinMode(LED_BUILTIN, OUTPUT);
 
   //instance field value init
   this->ssid = const_cast<char *>(ssid);
@@ -105,7 +104,11 @@ size_t SIBA::add_event(size_t code, SB_ACTION)
   size_t ret = 0;
 
   //0번 코드는 특수한 코드, 단 한 번만 등록될 수 있음, 생성자에서 등륵됨
-  if(code == 0 && action_cnt) return ret;
+  //hw 개발자는 0번 코드를 등록할 수 없음.
+  if (code == 0 && action_cnt){
+    Serial.println(F("cannot register this code and event"));
+    return ret;
+  }
   if (ret = action_cnt != EVENT_COUNT - 1)
   { //액션 스토어의 범위 내라면
     action_store[action_cnt++] = {code, sb_action};
@@ -153,19 +156,12 @@ size_t SIBA::exec_event(SB_ACTION)
 size_t SIBA::pub_result(size_t action_res)
 {
   //이벤트의 수행 종료 후 결과를 허브에게 전송
-  sb_keypair sets[2];
+  sb_keypair sets[] = {
+      {"status", "false"},
+      {"dev_mac", mac_address}};
   if (action_res)
   {
-     sets = {
-      {"status", "true"},
-      {"dev_mac", this->mac_address}
-    };
-  }
-  else{
-    sets = {
-      {"status", "false"},
-      {"dev_mac", this->mac_address}
-    };
+    sets[0].value = "true";
   }
 
   this->publish_topic(DEV_CTRL_END, sets, sizeof(sets) / sizeof(sets[0]));
@@ -186,7 +182,7 @@ void SIBA::regist_dev()
   this->publish_topic(DEV_REG, sets, sizeof(sets) / sizeof(sets[0]));
 }
 
-void SIBA::subscribe_topic(char* topic)
+void SIBA::subscribe_topic(char *topic)
 {
 #if defined(ESP8266) || defined(ESP32) || defined(ARDUINO)
   Serial.println(F("subscribe topic."));
@@ -225,14 +221,13 @@ void SIBA::mqtt_reconnect()
     {
       Serial.println(F("connected"));
 
-      // Once connected, publish an announcement...
-      this->regist_dev();
-      // ... and resubscribe
-
-
+      //토픽 subscribe
       String buf = String(DEV_CTRL) + "/" + this->mac_address;
-      char* topic = const_cast<char *>(buf.c_str());
+      char *topic = const_cast<char *>(buf.c_str());
       this->subscribe_topic(topic);
+
+      // 허브에게 장비 등록 요청
+      this->regist_dev();
     }
     else
     {
@@ -286,7 +281,7 @@ void SIBA::mqtt_callback(char *topic, uint8_t *payload, unsigned int length)
 
     SB_ACTION = context.grep_event(code);
     size_t action_result = context.exec_event(sb_action);
-    context.pub_result(action_result);
+    if(code) context.pub_result(action_result); //code가 0번이 아니라면 허브에게 결과 전송
   }
 }
 

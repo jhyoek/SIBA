@@ -41,9 +41,9 @@ class SIBA{
         char* mqtt_server;
         uint16_t mqtt_port;
         char* dev_type;
-        String mac_address;
+        static String mac_address;
         String cur_ip;
-        size_t is_reg;
+        static size_t is_reg;
 
         WiFiClient espClient;
         PubSubClient client;
@@ -62,7 +62,7 @@ class SIBA{
         void mqtt_reconnect();
         static void mqtt_callback(char *topic, uint8_t *payload, unsigned int length);
 
-        void register_event();
+        static void register_event(); //0번 코드에 대응되는 이벤트
 
     public:
         SIBA();
