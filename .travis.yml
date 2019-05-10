@@ -3,7 +3,7 @@ language: c
 # 해당 브랜치에 push시에 수행
 branches:
   only:
-    - develop
+    - release
 
 env:
   global:
