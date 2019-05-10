@@ -3,11 +3,11 @@ language: c
 # 해당 브랜치에 push시에 수행
 branches:
   only:
-    - develop
+    - release
 
 env:
   global:
-    - ARDUINO_IDE_VERSION="1.8.9"
+    - ARDUINO_IDE_VERSION=1.8.9
   matrix:
     - BOARD=arduino:avr:uno IDE_VERSION=1.8.9
     - BOARD=arduino:avr:uno
@@ -16,16 +16,17 @@ env:
     - BOARD=arduino:avr:mega:cpu=atmega1280
     - BOARD=arduino:avr:mega:cpu=atmega2560
     - BOARD=arduino:avr:leonardo
-#    - PRETTYNAME="SIBA platform Arduino/ NodeMCU library"
 
 # 배포 이전 수행작업 정의
 before_install:
   - "/sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_1.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :1 -ac -screen 0 1280x1024x16"
   - sleep 3
   - export DISPLAY=:1.0
-  - wget http://downloads.arduino.cc/arduino-1.8.9-linux64.tar.xz
-  - tar xf arduino-1.8.9-linux64.tar.xz
-  - sudo mv arduino-1.8.9 /usr/local/share/arduino
+
+  #아두이노 IDE설치
+  - wget http://downloads.arduino.cc/arduino-${IDE_VERSION}-linux64.tar.xz
+  - tar xf arduino-${IDE_VERSION}-linux64.tar.xz
+  - sudo mv arduino-${IDE_VERSION} /usr/local/share/arduino
   - sudo ln -s /usr/local/share/arduino/arduino /usr/local/bin/arduino
 
 install:
@@ -41,15 +42,13 @@ install:
 
 #push 시에 수행되는 명령
 script:
+  #Home path와 현재 경로 추가
   - "echo $PWD"
   - "echo $HOME"
   - "ls $PWD"
-#  - source $TRAVIS_BUILD_DIR/travis/common.sh
+
+#example 코드 실행
   - arduino --verify --board ${BOARD} $PWD/examples/siba_basic/siba_basic.ino
-#  - "cat $PWD/examples/AutoConnect/AutoConnect.ino"
-#  - arduino -v --verbose-build --verify $PWD/examples/AutoConnect/AutoConnect.ino
-#  - arduino --verify --board arduino:avr:uno $PWD/examples/IncomingCall/IncomingCall.ino
-#  - arduino --verify --board arduino:avr:uno $PWD/examples/AdafruitIO_GPS/AdafruitIO_GPS.ino
 
 #CI 실행 결과를 받을 메일 주소
 #추후 이메일외에 Slack또한 추가 예정
