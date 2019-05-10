@@ -8,6 +8,14 @@ branches:
 env:
   global:
     - ARDUINO_IDE_VERSION="1.8.9"
+  matrix:
+    - BOARD=arduino:avr:uno IDE_VERSION=1.8.9
+    - BOARD=arduino:avr:uno
+    - BOARD=arduino:avr:nano:cpu=atmega168
+    - BOARD=arduino:avr:nano:cpu=atmega328
+    - BOARD=arduino:avr:mega:cpu=atmega1280
+    - BOARD=arduino:avr:mega:cpu=atmega2560
+    - BOARD=arduino:avr:leonardo
 #    - PRETTYNAME="SIBA platform Arduino/ NodeMCU library"
 
 # 배포 이전 수행작업 정의
@@ -37,7 +45,7 @@ script:
   - "echo $HOME"
   - "ls $PWD"
 #  - source $TRAVIS_BUILD_DIR/travis/common.sh
-  - build_examples
+  - arduino --verify --board ${BOARD} $PWD/examples/siba_basic/siba_basic.ino
 #  - "cat $PWD/examples/AutoConnect/AutoConnect.ino"
 #  - arduino -v --verbose-build --verify $PWD/examples/AutoConnect/AutoConnect.ino
 #  - arduino --verify --board arduino:avr:uno $PWD/examples/IncomingCall/IncomingCall.ino
