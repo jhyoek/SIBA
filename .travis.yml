@@ -32,7 +32,7 @@ before_install:
 install:
   - ln -s $PWD /usr/local/share/arduino/libraries/SIBA
 # boards manager not working on 1.6.7 - 1.6.8
-  - arduino --pref "boardsmanager.additional.urls=http://arduino.esp8266.com/stable/package_esp8266com_index.json" --save-prefs
+  - arduino --pref "boardsmanager.additional.urls=https://github.com/esp8266/Arduino" --save-prefs
 # install lib arduino json not working in 1.6.5
 #  - arduino --install-library "ArduinoJson"
   #- git clone https://github.com/bblanchon/ArduinoJson /usr/local/share/arduino/libraries/ArduinoJson
